@@ -16,17 +16,36 @@ type Process struct {
 	ID                 ProcessID
 	Broadcaster        *Broadcaster
 	Directory          []*Process
-	ResourceHold       Event
 	RecvChan           chan Event
 	SendChan           chan Event
 	EventQueue         []Event
+	ResourceHold       Event
 	Ctx                context.Context
 	Clock              Timestamp
 	DoneWg             *sync.WaitGroup
-	acksNeeded         int
 	RequestTicker      *time.Ticker
 	SimulateUsage      *time.Timer
 	InternalEventTimer *time.Timer
+}
+
+func RemoveAtIndices[T interface{}](s []T, indices map[int]struct{}) []T {
+	var updatedSlice []T
+	for i, e := range s {
+		if _, found := indices[i]; !found {
+			updatedSlice = append(updatedSlice, e)
+		}
+	}
+	return updatedSlice
+}
+
+func RemoveWhere[T any](s []T, where func(T) bool) []T {
+	var result []T
+	for _, element := range s {
+		if !where(element) {
+			result = append(result, element)
+		}
+	}
+	return result
 }
 
 // Clock Condition: For any events a, b if a -> b then C(a) < C(b)
@@ -50,17 +69,14 @@ func (p *Process) C(events ...Event) {
 // To request a resource process p broadcasts the message Tm:Pi requests resource and, puts that message on its Queue
 // Duplicate requests are not allowed
 func (p *Process) Request() {
-	if p.acksNeeded < 1 {
-		p.C()
-		request := Message{
-			ProcessID:   p.ID,
-			Timestamp:   p.Clock,
-			MessageType: RequestEvent,
-		}
-		p.EventQueue = append(p.EventQueue, &request)
-		p.acksNeeded = len(p.Directory)
-		p.Broadcaster.Send(&request)
+	p.C()
+	request := Message{
+		ProcessID:   p.ID,
+		Timestamp:   p.Clock,
+		MessageType: RequestEvent,
 	}
+	p.EventQueue = append(p.EventQueue, &request)
+	p.Broadcaster.Send(&request)
 }
 
 // When process p receives message Tm:pi requests it places it on its request queue and sends timestamped ack message to Pi
@@ -120,7 +136,7 @@ func (p *Process) Receive(event Event) {
 				updatedQueue = append(updatedQueue, p.EventQueue[i])
 			}
 		}
-		p.EventQueue = updatedQueue
+		p.EventQueue = RemoveAtIndices[Event](p.EventQueue, indicesToRemoveSet)
 	}
 }
 
@@ -129,9 +145,10 @@ func (p *Process) Release() {
 	p.C()
 	if p.ResourceHold == nil {
 		panic("This should never happen")
-		return
 	}
-	// TODO
+	p.EventQueue = RemoveWhere[Event](p.EventQueue, func(e Event) bool {
+		return p.ResourceHold.PID() == e.PID() && p.ResourceHold.Time() == e.Time()
+	})
 	release := Message{
 		ProcessID:   p.ID,
 		Timestamp:   p.Clock,
