@@ -29,22 +29,24 @@ func (p *Process) SetSRState(v int) {
 func (p *Process) Broadcast(message Message) {
 	time.Sleep(getRandomDuration(200, 100))
 	for _, d := range p.Directory {
-		if p.ID != message.ProcessID {
+		if d.ProcessID != message.ProcessID {
 			d.RecvChan <- message
 		}
 	}
 }
 
 func (p *Process) Request() {
-	p.C()
-	request := Message{
-		ProcessID:   p.ID,
-		LTime:       p.Clock,
-		MessageType: Request,
+	if p.SRState == Free {
+		p.C()
+		request := Message{
+			ProcessID:   p.ID,
+			LTime:       p.Clock,
+			MessageType: Request,
+		}
+		p.MQueue = append(p.MQueue, request)
+		p.SetSRState(Requested)
+		p.Broadcast(request)
 	}
-	p.MQueue = append(p.MQueue, request)
-	p.SetSRState(Requested)
-	p.Broadcast(request)
 }
 
 func (p *Process) Release() {

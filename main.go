@@ -22,7 +22,7 @@ func main() {
 		PubChange: make(chan WatchMessage, 5),
 	}
 
-	numProcesses := 5
+	numProcesses := 2
 	processes := make([]*Process, numProcesses)
 	randomProcess := rand.IntN(numProcesses) + 1
 	initialMessage := Message{
@@ -89,9 +89,9 @@ func main() {
 			select {
 			case n, ok := <-processWatch.PubChange:
 				if !ok {
-					fmt.Printf("(Process, L Clock, State): %d, %d, %s", n.ProcessID, n.Clock, n.State)
 					return
 				}
+				fmt.Printf("(Process, L Clock, State): %d, %d, %s\n", n.ProcessID, n.Clock, n.State)
 			case <-ctx.Done():
 				return
 			}
