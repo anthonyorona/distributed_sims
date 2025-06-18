@@ -10,7 +10,6 @@ type ProcessID int
 type EventID int
 type MessageType int
 type LTime int
-type MessageQueue []*Message
 
 type DirectoryEntry struct {
 	ProcessID ProcessID
@@ -50,7 +49,7 @@ type Process struct {
 	AckSet    map[ProcessID]struct{}
 	Sim
 	RecvChan     chan Message
-	MQueue       []Message
+	MQueue       EventQueue[*Message]
 	ResourceHold *Message
 	ProcessWatch
 	SRState int
@@ -75,37 +74,4 @@ func (p *Process) GetSRState() string {
 	default:
 		return "Undefined"
 	}
-}
-
-type Message struct {
-	EventID     EventID
-	LTime       LTime
-	ProcessID   ProcessID
-	MessageType MessageType
-	Payload     map[string]int
-}
-
-func (m MessageQueue) Len() int { return len(m) }
-
-func (m MessageQueue) Less(i, j int) bool {
-	l := m[i]
-	r := m[j]
-	return l.LTime < r.LTime || (l.LTime == r.LTime && l.EventID < r.EventID)
-}
-
-func (m MessageQueue) Swap(i, j int) {
-	m[i], m[j] = m[j], m[i]
-}
-
-func (m *MessageQueue) Push(message *Message) {
-	*m = append(*m, message)
-}
-
-func (m *MessageQueue) Pop() *Message {
-	old := *m
-	n := len(old)
-	message := old[n-1]
-	old[n-1] = nil
-	*m = old[0 : n-1]
-	return message
 }

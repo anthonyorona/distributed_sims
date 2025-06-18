@@ -43,7 +43,7 @@ func (p *Process) Request() {
 			LTime:       p.Clock,
 			MessageType: Request,
 		}
-		p.MQueue = append(p.MQueue, request)
+		p.MQueue.Push(&request)
 		p.SetSRState(Requested)
 		p.Broadcast(request)
 	}
@@ -54,7 +54,7 @@ func (p *Process) Release() {
 	if p.ResourceHold == nil {
 		panic("This should never happen")
 	}
-	p.MQueue = RemoveWhere(p.MQueue, func(m Message) bool {
+	p.MQueue.RemoveWhere(func(m *Message) bool {
 		return p.ResourceHold.ProcessID == m.ProcessID && p.ResourceHold.LTime == m.LTime
 	})
 	p.Broadcast(Message{
@@ -73,9 +73,10 @@ func (p *Process) Release() {
 // When process p receives message Tm:pi requests it places it on its request queue and sends timestamped ack message to Pi
 func (p *Process) Receive(message Message) {
 	p.C()
-	p.MQueue = append(p.MQueue, message)
+	p.MQueue.Push(&message)
 	if message.MessageType == Request {
 		// response
+		fmt.Printf("Send ACK to %d", message.ProcessID)
 		p.Directory[message.ProcessID].RecvChan <- Message{
 			ProcessID:   p.ID,
 			LTime:       p.Clock,
@@ -83,13 +84,13 @@ func (p *Process) Receive(message Message) {
 		}
 	} else if message.MessageType == Ack {
 		p.AckSet[message.ProcessID] = struct{}{}
-		if len(p.AckSet) == len(p.Directory) {
+		if len(p.AckSet) == len(p.Directory)-1 {
 			p.SetSRState(Acknowledged)
 			p.AckSet = make(map[ProcessID]struct{})
 		}
 	} else if message.MessageType == Release {
-		p.MQueue = RemoveWhere(p.MQueue, func(m Message) bool {
-			return m.Payload["ProcessID"] == int(m.ProcessID) && m.Payload["LTime"] == int(m.LTime)
+		p.MQueue.RemoveWhere(func(m *Message) bool {
+			return message.Payload["ProcessID"] == int(m.ProcessID) && message.Payload["LTime"] == int(m.LTime)
 		})
 	} else {
 		panic(fmt.Sprintf("Message type %d not recognized", message.MessageType))
@@ -119,9 +120,9 @@ func (p *Process) Receive(message Message) {
 		if !acquired {
 			return
 		}
-		p.ResourceHold = &p.MQueue[0]
+		p.ResourceHold = p.MQueue[0]
 		p.Sim.Usage = time.NewTimer(time.Duration(rand.Intn(1000)+500) * time.Millisecond)
-		p.MQueue = RemoveAtIndices(p.MQueue, indicesToRemoveSet)
+		p.MQueue.RemoveAtIndices(indicesToRemoveSet)
 		p.SetSRState(Holding)
 	}
 }

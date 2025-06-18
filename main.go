@@ -1,6 +1,7 @@
 package main
 
 import (
+	"container/heap"
 	"context"
 	"fmt"
 	"math/rand/v2"
@@ -24,7 +25,7 @@ func main() {
 
 	numProcesses := 2
 	processes := make([]*Process, numProcesses)
-	randomProcess := rand.IntN(numProcesses) + 1
+	randomProcess := rand.IntN(numProcesses)
 	initialMessage := Message{
 		ProcessID:   ProcessID(randomProcess),
 		LTime:       LTime(0), // must be less than initial clock values
@@ -41,12 +42,15 @@ func main() {
 			ProcessID: PID,
 			RecvChan:  recvChan,
 		})
+		mQueue := make(EventQueue[*Message], 0)
+		heap.Init(&mQueue)
+		mCopy := initialMessage
+		heap.Push(&mQueue, &mCopy)
 		if i+1 == randomProcess {
-			mCopy := initialMessage
 			processes[i] = &Process{
 				ID:           PID,
 				RecvChan:     recvChan,
-				MQueue:       make([]Message, 0),
+				MQueue:       mQueue,
 				Ctx:          ctx,
 				Clock:        LTime(1),
 				ResourceHold: &mCopy,
@@ -61,7 +65,7 @@ func main() {
 			processes[i] = &Process{
 				ID:           PID,
 				RecvChan:     recvChan,
-				MQueue:       make([]Message, 0),
+				MQueue:       mQueue,
 				Ctx:          ctx,
 				Clock:        LTime(1),
 				ResourceHold: &resourceHold,
