@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 )
@@ -59,6 +60,21 @@ type Sim struct {
 	Request       *time.Ticker
 	Usage         *time.Timer
 	InternalEvent *time.Timer
+}
+
+func (mt MessageType) String() string {
+	switch mt {
+	case Request:
+		return "Request"
+	case Ack:
+		return "Ack"
+	case Release:
+		return "Release"
+	case Internal:
+		return "Internal"
+	default:
+		return fmt.Sprintf("UNKNOWN_MESSAGE_TYPE(%d)", mt)
+	}
 }
 
 func (p *Process) GetSRState() string {

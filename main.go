@@ -3,7 +3,6 @@ package main
 import (
 	"container/heap"
 	"context"
-	"fmt"
 	"math/rand/v2"
 	"os"
 	"os/signal"
@@ -77,7 +76,6 @@ func main() {
 				SRState:      Free,
 			}
 		}
-		processes[i].RecvChan <- initialMessage
 	}
 
 	for _, p := range processes {
@@ -91,11 +89,11 @@ func main() {
 		defer close(processWatch.PubChange)
 		for {
 			select {
-			case n, ok := <-processWatch.PubChange:
-				if !ok {
-					return
-				}
-				fmt.Printf("(Process, L Clock, State): %d, %d, %s\n", n.ProcessID, n.Clock, n.State)
+			// case n, ok := <-processWatch.PubChange:
+			// 	if !ok {
+			// 		return
+			// 	}
+			// fmt.Printf("(Process, L Clock, State): %d, %d, %s\n", n.ProcessID, n.Clock, n.State)
 			case <-ctx.Done():
 				return
 			}

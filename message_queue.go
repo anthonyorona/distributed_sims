@@ -1,6 +1,9 @@
 package main
 
-import "container/heap"
+import (
+	"container/heap"
+	"fmt"
+)
 
 type Message struct {
 	EventID     EventID
@@ -11,8 +14,10 @@ type Message struct {
 }
 
 type PriorityItem interface {
+	GetPID() int
 	GetLTime() int
 	GetEventID() int
+	GetEventType() string
 }
 
 func (m *Message) GetLTime() int {
@@ -21,6 +26,14 @@ func (m *Message) GetLTime() int {
 
 func (m *Message) GetEventID() int {
 	return int(m.EventID)
+}
+
+func (m *Message) GetPID() int {
+	return int(m.MessageType)
+}
+
+func (m *Message) GetEventType() string {
+	return m.MessageType.String()
 }
 
 type EventQueue[T PriorityItem] []T
@@ -70,4 +83,18 @@ func (m *EventQueue[T]) RemoveWhere(where func(T) bool) {
 	}
 	*m = newQueue
 	heap.Init(m)
+}
+
+func (m *EventQueue[T]) PrettyPrint(label string) {
+	fmt.Printf("--- EventQueue Contents (%s) ---\n", label)
+	if m.Len() == 0 {
+		fmt.Println("  (Queue is empty)")
+		fmt.Println("---------------------------------")
+		return
+	}
+	for i, item := range *m {
+		fmt.Printf("  [%d] LTime: %d, EventID: %d, EventType: %s, ProcessID: %d\n",
+			i, item.GetLTime(), item.GetEventID(), item.GetEventType(), item.GetPID())
+	}
+	fmt.Println("---------------------------------")
 }

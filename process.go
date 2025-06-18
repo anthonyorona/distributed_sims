@@ -76,7 +76,6 @@ func (p *Process) Receive(message Message) {
 	p.MQueue.Push(&message)
 	if message.MessageType == Request {
 		// response
-		fmt.Printf("Send ACK to %d", message.ProcessID)
 		p.Directory[message.ProcessID].RecvChan <- Message{
 			ProcessID:   p.ID,
 			LTime:       p.Clock,
@@ -96,7 +95,7 @@ func (p *Process) Receive(message Message) {
 		panic(fmt.Sprintf("Message type %d not recognized", message.MessageType))
 	}
 
-	if p.MQueue[0].ProcessID == p.ID {
+	if p.MQueue.Len() > 0 && p.MQueue[0].ProcessID == p.ID {
 		matches := make(map[ProcessID]int)
 		for _, peer := range p.Directory {
 			matches[peer.ProcessID] = -1
@@ -117,14 +116,14 @@ func (p *Process) Receive(message Message) {
 			}
 			indicesToRemoveSet[v] = struct{}{}
 		}
-		if !acquired {
-			return
+		if acquired {
+			p.ResourceHold = p.MQueue[0]
+			p.Sim.Usage = time.NewTimer(time.Duration(rand.Intn(1000)+500) * time.Millisecond)
+			p.MQueue.RemoveAtIndices(indicesToRemoveSet)
+			p.SetSRState(Holding)
 		}
-		p.ResourceHold = p.MQueue[0]
-		p.Sim.Usage = time.NewTimer(time.Duration(rand.Intn(1000)+500) * time.Millisecond)
-		p.MQueue.RemoveAtIndices(indicesToRemoveSet)
-		p.SetSRState(Holding)
 	}
+	p.MQueue.PrettyPrint(fmt.Sprintf("PROCESS ID: %d", p.ID))
 }
 
 func (p *Process) InternalEvent() {
