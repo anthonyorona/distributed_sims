@@ -3,6 +3,7 @@ package main
 import (
 	"container/heap"
 	"context"
+	"fmt"
 	"math/rand/v2"
 	"os"
 	"os/signal"
@@ -22,7 +23,7 @@ func main() {
 		PubChange: make(chan WatchMessage, 5),
 	}
 
-	numProcesses := 2
+	numProcesses := 50
 	processes := make([]*Process, numProcesses)
 	randomProcess := rand.IntN(numProcesses)
 	initialMessage := Message{
@@ -33,49 +34,38 @@ func main() {
 
 	var directory []DirectoryEntry
 	for i, _ := range processes {
-		PID := ProcessID(i)
-		var resourceHold Message
-		var simulateUsage *time.Timer
+		pid := ProcessID(i)
 		recvChan := make(chan Message, numProcesses+1)
 		directory = append(directory, DirectoryEntry{
-			ProcessID: PID,
+			ProcessID: pid,
 			RecvChan:  recvChan,
 		})
 		mQueue := make(EventQueue[*Message], 0)
 		heap.Init(&mQueue)
 		mCopy := initialMessage
 		heap.Push(&mQueue, &mCopy)
-		if i+1 == randomProcess {
-			processes[i] = &Process{
-				ID:           PID,
-				RecvChan:     recvChan,
-				MQueue:       mQueue,
-				Ctx:          ctx,
-				Clock:        LTime(1),
-				ResourceHold: &mCopy,
-				Sim: Sim{
-					Usage: time.NewTimer(getRandomDuration(151, 100)),
-				},
-				AckSet:       make(map[ProcessID]struct{}),
-				ProcessWatch: processWatch,
-				SRState:      Holding,
-			}
-		} else {
-			processes[i] = &Process{
-				ID:           PID,
-				RecvChan:     recvChan,
-				MQueue:       mQueue,
-				Ctx:          ctx,
-				Clock:        LTime(1),
-				ResourceHold: &resourceHold,
-				Sim: Sim{
-					Usage: simulateUsage,
-				},
-				AckSet:       make(map[ProcessID]struct{}),
-				ProcessWatch: processWatch,
-				SRState:      Free,
-			}
+		currentProcess := &Process{
+			ID:              pid,
+			RecvChan:        recvChan,
+			MessageDispatch: MessageDispatch{},
+			MQueue:          mQueue,
+			Ctx:             ctx,
+			Clock:           LTime(1),
+			Sim:             Sim{},
+			AckSet:          make(map[ProcessID]struct{}),
+			ProcessWatch:    processWatch,
+			SRState:         Free,
+			rng:             rand.New(rand.NewPCG(uint64(time.Now().UnixNano()), rand.Uint64())),
 		}
+		if i == randomProcess {
+			currentProcess.ResourceHold = &mCopy
+			currentProcess.Sim.Usage = time.NewTimer(getRandomDuration(1000, 250))
+			currentProcess.SRState = Holding
+		} else {
+			currentProcess.ResourceHold = nil
+			currentProcess.Sim.Usage = nil
+		}
+		processes[i] = currentProcess
 	}
 
 	for _, p := range processes {
@@ -87,13 +77,17 @@ func main() {
 	go func() {
 		defer processWatch.Wg.Done()
 		defer close(processWatch.PubChange)
+		processStates := make(map[ProcessID]WatchMessage)
+
 		for {
 			select {
-			// case n, ok := <-processWatch.PubChange:
-			// 	if !ok {
-			// 		return
-			// 	}
-			// fmt.Printf("(Process, L Clock, State): %d, %d, %s\n", n.ProcessID, n.Clock, n.State)
+			case n, ok := <-processWatch.PubChange:
+				if !ok {
+					return
+				}
+				processStates[n.ProcessID] = n
+				fmt.Printf("(Process, L Clock, State): %d, %d, %s\n", n.ProcessID, n.Clock, n.State)
+				printAllProcessStates(numProcesses, processStates)
 			case <-ctx.Done():
 				return
 			}

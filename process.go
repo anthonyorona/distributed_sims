@@ -1,20 +1,39 @@
 package main
 
 import (
+	"container/heap"
+	"context"
 	"fmt"
-	"math/rand"
+	"math/rand/v2"
 	"time"
 )
 
+type Process struct {
+	ID        ProcessID
+	Ctx       context.Context
+	Clock     LTime
+	Directory []DirectoryEntry
+	AckSet    map[ProcessID]struct{}
+	Sim
+	RecvChan     chan Message
+	MQueue       EventQueue[*Message]
+	ResourceHold *Message
+	Outstanding  *Message
+	ProcessWatch
+	MessageDispatch
+	SRState int
+	rng     *rand.Rand
+}
+
 func (p *Process) C(events ...Message) {
-	currentTime := p.Clock + 1
 	if len(events) == 1 {
-		lTime := events[0].LTime
-		if lTime >= currentTime {
-			currentTime = lTime + 1
+		recvLTime := events[0].LTime
+		if recvLTime > p.Clock {
+			p.Clock = recvLTime + 1
+			return
 		}
 	}
-	p.Clock = currentTime
+	p.Clock++
 }
 
 func (p *Process) SetSRState(v int) {
@@ -38,13 +57,11 @@ func (p *Process) Broadcast(message Message) {
 func (p *Process) Request() {
 	if p.SRState == Free {
 		p.C()
-		request := Message{
-			ProcessID:   p.ID,
-			LTime:       p.Clock,
-			MessageType: Request,
-		}
-		p.MQueue.Push(&request)
+		request := p.MessageDispatch.NewMessage(p.ID, p.Clock, Request)
+		p.Outstanding = &request
+		heap.Push(&p.MQueue, &request)
 		p.SetSRState(Requested)
+		p.AckSet = make(map[ProcessID]struct{})
 		p.Broadcast(request)
 	}
 }
@@ -57,73 +74,63 @@ func (p *Process) Release() {
 	p.MQueue.RemoveWhere(func(m *Message) bool {
 		return p.ResourceHold.ProcessID == m.ProcessID && p.ResourceHold.LTime == m.LTime
 	})
-	p.Broadcast(Message{
-		ProcessID:   p.ID,
-		LTime:       p.Clock,
-		MessageType: Release,
-		Payload: map[string]int{
-			"ProcessID": int(p.ID),
-			"LTime":     int(p.ResourceHold.LTime),
-		},
-	})
-	p.ResourceHold = nil
 	p.SetSRState(Free)
+	p.Broadcast(p.MessageDispatch.NewMessage(p.ID, p.Clock, Release, map[string]int{
+		"ProcessID": int(p.ID),
+		"LTime":     int(p.ResourceHold.LTime),
+	}))
+	p.ResourceHold = nil
 }
 
 // When process p receives message Tm:pi requests it places it on its request queue and sends timestamped ack message to Pi
 func (p *Process) Receive(message Message) {
-	p.C()
-	p.MQueue.Push(&message)
+	p.C(message)
+	heap.Push(&p.MQueue, &message)
 	if message.MessageType == Request {
-		// response
-		p.Directory[message.ProcessID].RecvChan <- Message{
-			ProcessID:   p.ID,
-			LTime:       p.Clock,
-			MessageType: Ack,
-		}
+		p.Directory[message.ProcessID].RecvChan <- p.MessageDispatch.NewMessage(p.ID, p.Clock, Ack)
 	} else if message.MessageType == Ack {
 		p.AckSet[message.ProcessID] = struct{}{}
-		if len(p.AckSet) == len(p.Directory)-1 {
-			p.SetSRState(Acknowledged)
-			p.AckSet = make(map[ProcessID]struct{})
-		}
 	} else if message.MessageType == Release {
 		p.MQueue.RemoveWhere(func(m *Message) bool {
-			return message.Payload["ProcessID"] == int(m.ProcessID) && message.Payload["LTime"] == int(m.LTime)
+			return message.Payload["ProcessID"] == int(m.ProcessID) &&
+				message.Payload["LTime"] == int(m.LTime)
 		})
 	} else {
 		panic(fmt.Sprintf("Message type %d not recognized", message.MessageType))
 	}
 
-	if p.MQueue.Len() > 0 && p.MQueue[0].ProcessID == p.ID {
-		matches := make(map[ProcessID]int)
-		for _, peer := range p.Directory {
-			matches[peer.ProcessID] = -1
-			for i, queuedMessage := range p.MQueue {
-				if peer.ProcessID == queuedMessage.ProcessID && p.MQueue[0].LTime < queuedMessage.LTime {
-					matches[peer.ProcessID] = i
-					break
+	if p.SRState == Requested && p.Outstanding != nil {
+		var smallest *Message
+		for _, m := range p.MQueue {
+			if m.MessageType == Request {
+				if smallest == nil ||
+					m.LTime < smallest.LTime ||
+					(m.LTime == smallest.LTime && m.ProcessID < smallest.ProcessID) {
+					smallest = m
 				}
 			}
 		}
 
-		acquired := true
-		indicesToRemoveSet := map[int]struct{}{0: {}}
-		for _, v := range matches {
-			if v == -1 {
-				acquired = false
-				break
-			}
-			indicesToRemoveSet[v] = struct{}{}
+		match := false
+		if smallest != nil &&
+			smallest.ProcessID == p.Outstanding.ProcessID &&
+			smallest.LTime == p.Outstanding.LTime {
+			match = true
 		}
-		if acquired {
-			p.ResourceHold = p.MQueue[0]
-			p.Sim.Usage = time.NewTimer(time.Duration(rand.Intn(1000)+500) * time.Millisecond)
-			p.MQueue.RemoveAtIndices(indicesToRemoveSet)
+
+		acked := len(p.AckSet) == (len(p.Directory) - 1)
+		if match && acked {
+			p.ResourceHold = p.Outstanding
 			p.SetSRState(Holding)
+			p.MQueue.RemoveWhere(func(m *Message) bool {
+				return m.ProcessID == p.ID && m.LTime == p.ResourceHold.LTime && m.MessageType == Request
+			})
+			p.Sim.Usage = time.NewTimer(getRandomDuration(1000, 500))
+			p.AckSet = make(map[ProcessID]struct{})
+			p.Outstanding = nil
 		}
 	}
-	p.MQueue.PrettyPrint(fmt.Sprintf("PROCESS ID: %d", p.ID))
+	// p.MQueue.PrettyPrint(fmt.Sprintf("PROCESS ID: %d, SR State: %s", p.ID, p.GetSRState()))
 }
 
 func (p *Process) InternalEvent() {
@@ -144,7 +151,7 @@ func (p *Process) Start() {
 		case message := <-p.RecvChan:
 			p.Receive(message)
 		case <-p.Sim.Request.C:
-			if rand.New(rand.NewSource(time.Now().UnixNano())).Intn(2) == 0 {
+			if rand.IntN(2) == 0 {
 				p.Request()
 			}
 		case <-p.Sim.InternalEvent.C:

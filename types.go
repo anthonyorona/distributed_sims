@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"sync"
 	"time"
@@ -11,6 +10,12 @@ type ProcessID int
 type EventID int
 type MessageType int
 type LTime int
+
+type Sim struct {
+	Request       *time.Ticker
+	Usage         *time.Timer
+	InternalEvent *time.Timer
+}
 
 type DirectoryEntry struct {
 	ProcessID ProcessID
@@ -31,6 +36,26 @@ const (
 	Holding
 )
 
+type MessageDispatch struct {
+	sequence EventID
+}
+
+func (md *MessageDispatch) NewMessage(pID ProcessID, lTime LTime, messageType MessageType, payload ...map[string]int) Message {
+	EventID := md.sequence
+	md.sequence += 1
+	var p map[string]int
+	if len(payload) == 1 {
+		p = payload[0]
+	}
+	return Message{
+		EventID:     EventID,
+		ProcessID:   pID,
+		LTime:       lTime,
+		MessageType: messageType,
+		Payload:     p,
+	}
+}
+
 type WatchMessage struct {
 	ProcessID
 	Clock LTime
@@ -40,26 +65,6 @@ type WatchMessage struct {
 type ProcessWatch struct {
 	PubChange chan WatchMessage
 	Wg        *sync.WaitGroup
-}
-
-type Process struct {
-	ID        ProcessID
-	Ctx       context.Context
-	Clock     LTime
-	Directory []DirectoryEntry
-	AckSet    map[ProcessID]struct{}
-	Sim
-	RecvChan     chan Message
-	MQueue       EventQueue[*Message]
-	ResourceHold *Message
-	ProcessWatch
-	SRState int
-}
-
-type Sim struct {
-	Request       *time.Ticker
-	Usage         *time.Timer
-	InternalEvent *time.Timer
 }
 
 func (mt MessageType) String() string {
