@@ -8,6 +8,12 @@ type LamportClock struct {
 	time LamportTimeStamp
 }
 
+func NewLamportClock() LamportClock {
+	return LamportClock{
+		time: LamportTimeStamp(1),
+	}
+}
+
 func (l *LamportClock) GetLTime() LamportTimeStamp {
 	return l.time
 }

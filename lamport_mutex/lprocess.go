@@ -2,11 +2,13 @@ package lamport_mutex
 
 import (
 	"container/heap"
+	"context"
 	"fmt"
 	"math/rand/v2"
 	"time"
 
 	"github.com/anthonyorona/logical_clock_sim/common"
+	"github.com/anthonyorona/logical_clock_sim/events"
 	"github.com/anthonyorona/logical_clock_sim/process"
 	"github.com/anthonyorona/logical_clock_sim/types"
 )
@@ -32,6 +34,25 @@ type LamportSim struct {
 	Request       *time.Ticker
 	Usage         *time.Timer
 	InternalEvent *time.Timer
+}
+
+func NewProcess(ctx context.Context, pid types.ProcessID, initialMessage Message, recvChan chan *Message, pw process.ProcessWatch) LamportProcess {
+	mQueue := make(events.EventQueue[*Message], 0)
+	heap.Init(&mQueue)
+	mCopy := initialMessage
+	heap.Push(&mQueue, &mCopy)
+	return LamportProcess{
+		Process: process.Process[*Message]{
+			Ctx:          ctx,
+			ID:           pid,
+			RecvChan:     recvChan,
+			EventQueue:   mQueue,
+			ProcessWatch: pw,
+			PState:       Free,
+		},
+		LamportClock: NewLamportClock(),
+		AckSet:       make(map[types.ProcessID]struct{}),
+	}
 }
 
 func (p *LamportProcess) SetPState(v types.PState) {

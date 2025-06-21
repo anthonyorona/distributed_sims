@@ -10,9 +10,9 @@ import (
 	"github.com/anthonyorona/logical_clock_sim/types"
 )
 
-type DirectoryEntry struct {
+type DirectoryEntry[T events.RankedEvent] struct {
 	ProcessID types.ProcessID
-	RecvChan  chan events.RankedEvent
+	RecvChan  chan T
 }
 
 type Process[T events.RankedEvent] struct {
@@ -20,13 +20,13 @@ type Process[T events.RankedEvent] struct {
 	ProcessWatch
 	ID             types.ProcessID
 	Ctx            context.Context
-	Directory      []DirectoryEntry
+	Directory      []DirectoryEntry[T]
 	RecvChan       chan T
 	EventQueue     events.EventQueue[T]
 	EventSequencer events.EventSequencer
 }
 
-func (p *Process[T]) Broadcast(event events.RankedEvent) {
+func (p *Process[T]) Broadcast(event T) {
 	time.Sleep(common.GetRandomDuration(200, 100))
 	for _, d := range p.Directory {
 		if d.ProcessID != event.GetPID() {
