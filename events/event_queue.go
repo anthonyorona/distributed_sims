@@ -1,49 +1,18 @@
-package main
+package events
 
 import (
 	"container/heap"
 	"fmt"
 )
 
-type Message struct {
-	EventID     EventID
-	LTime       LTime
-	ProcessID   ProcessID
-	MessageType MessageType
-	Payload     map[string]int
-}
-
-type PriorityItem interface {
-	GetPID() int
-	GetLTime() int
-	GetEventID() int
-	GetEventType() string
-}
-
-func (m *Message) GetLTime() int {
-	return int(m.LTime)
-}
-
-func (m *Message) GetEventID() int {
-	return int(m.EventID)
-}
-
-func (m *Message) GetPID() int {
-	return int(m.ProcessID)
-}
-
-func (m *Message) GetEventType() string {
-	return m.MessageType.String()
-}
-
-type EventQueue[T PriorityItem] []T
+type EventQueue[T RankedEvent] []T
 
 func (m *EventQueue[T]) Len() int { return len(*m) }
 
 func (m *EventQueue[T]) Less(i, j int) bool {
 	l := (*m)[i]
 	r := (*m)[j]
-	return l.GetLTime() < r.GetLTime() || (l.GetLTime() == r.GetLTime() && l.GetEventID() < r.GetEventID())
+	return l.GetLRank() < r.GetLRank() || (l.GetTieBreaker() == r.GetTieBreaker() && l.GetEventID() < r.GetEventID())
 }
 
 func (m *EventQueue[T]) Swap(i, j int) {
@@ -85,7 +54,7 @@ func (m *EventQueue[T]) RemoveWhere(where func(T) bool) {
 	heap.Init(m)
 }
 
-func (m *EventQueue[T]) PrettyPrint(label string) {
+func (m *EventQueue[T]) PrettyPrintEventQueue(label string) {
 	fmt.Printf("--- EventQueue Contents (%s) ---\n", label)
 	if m.Len() == 0 {
 		fmt.Println("  (Queue is empty)")
@@ -93,8 +62,8 @@ func (m *EventQueue[T]) PrettyPrint(label string) {
 		return
 	}
 	for i, item := range *m {
-		fmt.Printf("  [%d] LTime: %d, EventID: %d, EventType: %s, ProcessID: %d\n",
-			i, item.GetLTime(), item.GetEventID(), item.GetEventType(), item.GetPID())
+		fmt.Printf("  [%d] LRank: %d, EventID: %d, EventType: %s, Tie Breaker: %d\n",
+			i, item.GetLRank(), item.GetEventID(), item.GetEventType(), item.GetTieBreaker())
 	}
 	fmt.Println("---------------------------------")
 }

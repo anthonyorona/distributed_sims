@@ -10,26 +10,28 @@ import (
 	"sync"
 	"syscall"
 	"time"
+
+	"github.com/anthonyorona/logical_clock_sim/lamport_mutex"
+	"github.com/anthonyorona/logical_clock_sim/process"
+	"github.com/anthonyorona/logical_clock_sim/types"
 )
 
-// Simulate a distributed system, consisting of distinct processes
-// that only communicate with one another by exchanging messages.
 func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 	var wg sync.WaitGroup
-	processWatch := ProcessWatch{
+	processWatch := process.ProcessWatch{
 		Wg:        &wg,
-		PubChange: make(chan WatchMessage, 5),
+		PubChange: make(chan process.WatchMessage, 5),
 	}
 
 	numProcesses := 50
-	processes := make([]*Process, numProcesses)
+	processes := make([]*process.Process, numProcesses)
 	randomProcess := rand.IntN(numProcesses)
-	initialMessage := Message{
-		ProcessID:   ProcessID(randomProcess),
-		LTime:       LTime(0), // must be less than initial clock values
-		MessageType: Request,
+	initialMessage := lamport_mutex.Message{
+		ProcessID:   types.ProcessID(randomProcess),
+		LTime:       LogicalTime(0), // must be less than initial clock values
+		MessageType: cxRequest,
 	}
 
 	var directory []DirectoryEntry
@@ -50,7 +52,7 @@ func main() {
 			MessageDispatch: MessageDispatch{},
 			MQueue:          mQueue,
 			Ctx:             ctx,
-			Clock:           LTime(1),
+			Clock:           LogicalTime(1),
 			Sim:             Sim{},
 			AckSet:          make(map[ProcessID]struct{}),
 			ProcessWatch:    processWatch,
