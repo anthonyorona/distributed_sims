@@ -62,7 +62,7 @@ func (m *EventQueue[T]) PrettyPrintEventQueue(label string) {
 		return
 	}
 	for i, item := range *m {
-		fmt.Printf("  [%d] LRank: %d, EventID: %d, EventType: %s, Tie Breaker: %d\n",
+		fmt.Printf("  [%d] LRank: %d, EventID: %d, EventType: %s, Tie: %d\n",
 			i, item.GetLRank(), item.GetEventID(), item.GetEventType(), item.GetTieBreaker())
 	}
 	fmt.Println("---------------------------------")

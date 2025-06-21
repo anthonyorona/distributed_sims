@@ -7,11 +7,11 @@ import (
 	"time"
 
 	"github.com/anthonyorona/logical_clock_sim/common"
-	"github.com/anthonyorona/logical_clock_sim/events"
 	"github.com/anthonyorona/logical_clock_sim/process"
 	"github.com/anthonyorona/logical_clock_sim/types"
 )
 
+// Process states for the Lamport distributed mutex simulation
 const (
 	Free types.PState = iota
 	Requested
@@ -20,12 +20,12 @@ const (
 )
 
 type LamportProcess struct {
-	process.Process
+	process.Process[*Message]
 	LamportClock
 	LamportSim
 	AckSet       map[types.ProcessID]struct{}
-	ResourceHold events.RankedEvent
-	Outstanding  events.RankedEvent
+	ResourceHold *Message
+	Outstanding  *Message
 }
 
 type LamportSim struct {
@@ -84,12 +84,12 @@ func (p *LamportProcess) Done() {
 }
 
 func (p *LamportProcess) InternalEvent() {
-	p.SetLTime() // just move the clock forward
+	p.C() // just move the clock forward
 }
 
 func (p *LamportProcess) Request() {
 	if p.PState == Free {
-		p.SetLTime()
+		p.C()
 		request := p.NewMessage(p.ID, p.GetLTime(), Request)
 		p.Outstanding = &request
 		heap.Push(&p.EventQueue, &request)
@@ -100,11 +100,11 @@ func (p *LamportProcess) Request() {
 }
 
 func (p *LamportProcess) Release() {
-	p.SetLTime()
+	p.C()
 	if p.ResourceHold == nil {
 		panic("This should never happen")
 	}
-	p.EventQueue.RemoveWhere(func(m events.RankedEvent) bool {
+	p.EventQueue.RemoveWhere(func(m *Message) bool {
 		return p.ResourceHold.GetPID() == m.GetPID() && p.ResourceHold.GetLRank() == m.GetLRank()
 	})
 	p.SetPState(Free)
@@ -118,7 +118,7 @@ func (p *LamportProcess) Release() {
 
 // When process p receives message Tm:pi requests it places it on its request queue and sends timestamped ack message to Pi
 func (p *LamportProcess) Receive(message *Message) {
-	p.SetLTime(message)
+	p.C(message)
 	heap.Push(&p.EventQueue, &message)
 	if message.MessageType == Request {
 		m := p.NewMessage(p.ID, p.GetLTime(), Ack)
@@ -126,7 +126,7 @@ func (p *LamportProcess) Receive(message *Message) {
 	} else if message.MessageType == Ack {
 		p.AckSet[message.ProcessID] = struct{}{}
 	} else if message.MessageType == Release {
-		p.EventQueue.RemoveWhere(func(m events.RankedEvent) bool {
+		p.EventQueue.RemoveWhere(func(m *Message) bool {
 			return message.Payload["ProcessID"] == int(m.GetPID()) &&
 				message.Payload["LRank"] == int(m.GetLRank())
 		})
@@ -137,7 +137,6 @@ func (p *LamportProcess) Receive(message *Message) {
 	if p.PState == Requested && p.Outstanding != nil {
 		var smallest *Message
 		for _, m := range p.EventQueue {
-			m, _ := m.(*Message)
 			if m.MessageType == Request {
 				if smallest == nil ||
 					m.LTime < smallest.LTime ||
@@ -158,7 +157,7 @@ func (p *LamportProcess) Receive(message *Message) {
 		if match && acked {
 			p.ResourceHold = p.Outstanding
 			p.SetPState(Holding)
-			p.EventQueue.RemoveWhere(func(m events.RankedEvent) bool {
+			p.EventQueue.RemoveWhere(func(m *Message) bool {
 				return m.GetPID() == p.ID && m.GetLRank() == p.ResourceHold.GetLRank() && m.MessageType == Request
 			})
 			p.LamportSim.Usage = time.NewTimer(common.GetRandomDuration(1000, 500))
@@ -180,8 +179,7 @@ func (p *LamportProcess) Start() {
 			usageChan = nil // Ensure it's nil if Usage was cleared
 		}
 		select {
-		case event := <-p.RecvChan:
-			m, _ := event.(*Message)
+		case m := <-p.RecvChan:
 			p.Receive(m)
 		case <-p.LamportSim.Request.C:
 			if rand.IntN(2) == 0 {

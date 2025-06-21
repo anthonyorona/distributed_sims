@@ -12,7 +12,7 @@ func (l *LamportClock) GetLTime() LamportTimeStamp {
 	return l.time
 }
 
-func (l *LamportClock) SetLTime(events ...*Message) {
+func (l *LamportClock) C(events ...*Message) {
 	lTime := l.GetLTime()
 	if len(events) == 1 {
 		recvLTime := events[0].GetLTime()
