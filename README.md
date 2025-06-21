@@ -1,6 +1,15 @@
-Improving my golang by working through simulations, such as
+This project simulates nodes in a distributed system for implementations of distributed algorithms
 
-- a simulation of Lamport's distributed mutual exclusion algorithm
 
-Simulate a distributed system, consisting of distinct processes
-that only communicate with one another by exchanging messages.
+## Building the Executable
+
+    ```
+    go build -o bin/distributed_mutex ./cmd/distributed_mutex
+    ```
+
+## 4. Running the Simulation
+
+1.  **Run Process 1**:
+    ```
+    ./bin/distributed_mutex
+    ```
