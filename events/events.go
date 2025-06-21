@@ -1,6 +1,6 @@
 package events
 
-import "github.com/anthonyorona/logical_clock_sim/types"
+import "github.com/anthonyorona/distributed_sims/types"
 
 type RankedEvent interface {
 	GetTieBreaker() int

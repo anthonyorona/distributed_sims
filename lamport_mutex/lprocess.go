@@ -7,10 +7,10 @@ import (
 	"math/rand/v2"
 	"time"
 
-	"github.com/anthonyorona/logical_clock_sim/common"
-	"github.com/anthonyorona/logical_clock_sim/events"
-	"github.com/anthonyorona/logical_clock_sim/process"
-	"github.com/anthonyorona/logical_clock_sim/types"
+	"github.com/anthonyorona/distributed_sims/common"
+	"github.com/anthonyorona/distributed_sims/events"
+	"github.com/anthonyorona/distributed_sims/process"
+	"github.com/anthonyorona/distributed_sims/types"
 )
 
 // Process states for the Lamport distributed mutex simulation

@@ -3,7 +3,7 @@ package lamport_mutex
 import (
 	"fmt"
 
-	"github.com/anthonyorona/logical_clock_sim/types"
+	"github.com/anthonyorona/distributed_sims/types"
 )
 
 type MessageType int

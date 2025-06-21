@@ -10,10 +10,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/anthonyorona/logical_clock_sim/common"
-	"github.com/anthonyorona/logical_clock_sim/lamport_mutex"
-	"github.com/anthonyorona/logical_clock_sim/process"
-	"github.com/anthonyorona/logical_clock_sim/types"
+	"github.com/anthonyorona/distributed_sims/common"
+	"github.com/anthonyorona/distributed_sims/lamport_mutex"
+	"github.com/anthonyorona/distributed_sims/process"
+	"github.com/anthonyorona/distributed_sims/types"
 )
 
 func main() {

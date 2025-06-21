@@ -3,7 +3,7 @@ package process
 import (
 	"sync"
 
-	"github.com/anthonyorona/logical_clock_sim/types"
+	"github.com/anthonyorona/distributed_sims/types"
 )
 
 type WatchMessage struct {
