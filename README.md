@@ -17,7 +17,7 @@ PID: 9, Clock: 87, Queue Length: 9, State: Requested
 
 Here there are 10 processes contending for a shared resource.
 
-The distributed mutex algorithm uses lamport clocks to create a consistent total ordering that allows the processes to synchornize their use of the shared resource.
+The distributed mutex algorithm uses lamport clocks to create a consistent total ordering that allows the processes to synchronize their use of the shared resource.
 
 
 ## Building the Executable
