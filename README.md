@@ -1,4 +1,8 @@
-This project simulates nodes in a distributed system for implementations of distributed algorithms
+## Overview
+
+This project simulates distributed system nodes to aid in learning distributed algorithms.
+
+### Distributed Mutex Algorithm using Lamport Clocks
 
 ```
 --- Current System State ---
@@ -15,10 +19,13 @@ PID: 9, Clock: 87, Queue Length: 9, State: Requested
 ----------------------------
 ```
 
-Here there are 10 processes contending for a shared resource.
+In this first simulation there are N (here 10) contending for a shared resource.
 
-The distributed mutex algorithm uses lamport clocks to create a consistent total ordering that allows the processes to synchronize their use of the shared resource.
+The distributed mutex algorithm uses lamport clocks to create a consistent total ordering.
 
+In other words, the processes all see the same total ordering without being constrained by the need to synchronize centralized state.
+
+This allows processes to coordinate their use of shared resources, on of many problems requiring coordination in a DS.
 
 ## Building the Executable
 
