@@ -25,7 +25,7 @@ func main() {
 		PubChange: make(chan process.WatchMessage, 5),
 	}
 
-	numProcesses := 50
+	numProcesses := 10
 	processes := make([]*lamport_mutex.LamportProcess, numProcesses)
 	randomProcess := rand.IntN(int(numProcesses))
 	initialMessage := lamport_mutex.Message{
@@ -73,7 +73,7 @@ func main() {
 					return
 				}
 				processStates[n.ProcessID] = n
-				fmt.Printf("(Process, L Clock, State): %d, %d, %s\n", n.ProcessID, n.Clock, n.State)
+				fmt.Printf("(Process, L Clock, State): %d, %s, %s\n", n.ProcessID, n.Clock, n.State)
 				process.PrintAllProcessStates(int(numProcesses), processStates)
 			case <-ctx.Done():
 				return

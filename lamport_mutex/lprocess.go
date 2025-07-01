@@ -39,8 +39,7 @@ type LamportSim struct {
 func NewProcess(ctx context.Context, pid types.ProcessID, initialMessage Message, recvChan chan *Message, pw process.ProcessWatch) LamportProcess {
 	mQueue := make(events.EventQueue[*Message], 0)
 	heap.Init(&mQueue)
-	mCopy := initialMessage
-	heap.Push(&mQueue, &mCopy)
+	heap.Push(&mQueue, &initialMessage)
 	return LamportProcess{
 		Process: process.Process[*Message]{
 			Ctx:          ctx,
@@ -61,6 +60,7 @@ func (p *LamportProcess) SetPState(v types.PState) {
 		ProcessID: p.ID,
 		Clock:     p.LamportClock.String(),
 		State:     p.GetPState(),
+		QL:        len(p.EventQueue),
 	}
 }
 
@@ -110,8 +110,8 @@ func (p *LamportProcess) InternalEvent() {
 
 func (p *LamportProcess) Request() {
 	if p.PState == Free {
-		p.C()
-		request := p.NewMessage(p.ID, p.GetLTime(), Request)
+		lTime := p.C()
+		request := p.NewMessage(p.ID, lTime, Request)
 		p.Outstanding = &request
 		heap.Push(&p.EventQueue, &request)
 		p.SetPState(Requested)
@@ -121,15 +121,15 @@ func (p *LamportProcess) Request() {
 }
 
 func (p *LamportProcess) Release() {
-	p.C()
+	lTime := p.C()
 	if p.ResourceHold == nil {
 		panic("This should never happen")
 	}
 	p.EventQueue.RemoveWhere(func(m *Message) bool {
-		return p.ResourceHold.GetPID() == m.GetPID() && p.ResourceHold.GetLRank() == m.GetLRank()
+		return (p.ResourceHold.GetPID() == m.GetPID() && p.ResourceHold.GetLRank() == m.GetLRank()) || m.GetEventType() == "Ack"
 	})
 	p.SetPState(Free)
-	m := p.NewMessage(p.ID, p.GetLTime(), Release, map[string]int{
+	m := p.NewMessage(p.ID, lTime, Release, map[string]int{
 		"ProcessID": int(p.ID),
 		"LRank":     int(p.ResourceHold.GetLRank()),
 	})
@@ -139,13 +139,14 @@ func (p *LamportProcess) Release() {
 
 // When process p receives message Tm:pi requests it places it on its request queue and sends timestamped ack message to Pi
 func (p *LamportProcess) Receive(message *Message) {
-	p.C(message)
-	heap.Push(&p.EventQueue, &message)
+	lTime := p.C()
 	if message.MessageType == Request {
-		m := p.NewMessage(p.ID, p.GetLTime(), Ack)
+		m := p.NewMessage(p.ID, lTime, Ack)
 		p.Directory[message.ProcessID].RecvChan <- &m
+		heap.Push(&p.EventQueue, message)
 	} else if message.MessageType == Ack {
 		p.AckSet[message.ProcessID] = struct{}{}
+		heap.Push(&p.EventQueue, message)
 	} else if message.MessageType == Release {
 		p.EventQueue.RemoveWhere(func(m *Message) bool {
 			return message.Payload["ProcessID"] == int(m.GetPID()) &&
@@ -186,7 +187,6 @@ func (p *LamportProcess) Receive(message *Message) {
 			p.Outstanding = nil
 		}
 	}
-	// p.EventQueue.PrettyPrint(fmt.Sprintf("PROCESS ID: %d, SR State: %s", p.ID, p.GetSRState()))
 }
 
 func (p *LamportProcess) Start() {

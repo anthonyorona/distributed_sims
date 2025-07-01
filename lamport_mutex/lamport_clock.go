@@ -14,22 +14,18 @@ func NewLamportClock() LamportClock {
 	}
 }
 
-func (l *LamportClock) GetLTime() LamportTimeStamp {
-	return l.time
-}
-
-func (l *LamportClock) C(events ...*Message) {
-	lTime := l.GetLTime()
+func (l *LamportClock) C(events ...*Message) LamportTimeStamp {
 	if len(events) == 1 {
 		recvLTime := events[0].GetLTime()
-		if recvLTime > lTime {
+		if recvLTime > l.time {
 			l.time = recvLTime + 1
-			return
+			return l.time
 		}
 	}
 	l.time++
+	return l.time
 }
 
 func (l *LamportClock) String() string {
-	return strconv.Itoa(int(l.GetLTime()))
+	return strconv.Itoa(int(l.time))
 }

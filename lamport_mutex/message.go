@@ -65,3 +65,11 @@ func (mt MessageType) String() string {
 		return fmt.Sprintf("UNKNOWN_MESSAGE_TYPE(%d)", mt)
 	}
 }
+
+func (m *Message) String() string {
+	if m == nil {
+		return "<nil Message>"
+	}
+	return fmt.Sprintf("ProcessID: %d, EventID: %d, LTime: %d, MessageType: %s, Payload: %v",
+		m.ProcessID, m.EventID, m.LTime, m.MessageType, m.Payload)
+}

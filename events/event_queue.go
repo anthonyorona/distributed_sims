@@ -54,14 +54,22 @@ func (m *EventQueue[T]) RemoveWhere(where func(T) bool) {
 	heap.Init(m)
 }
 
-func (m *EventQueue[T]) PrettyPrintEventQueue(label string) {
+func (m *EventQueue[T]) PrettyPrint(label string) {
 	fmt.Printf("--- EventQueue Contents (%s) ---\n", label)
 	if m.Len() == 0 {
 		fmt.Println("  (Queue is empty)")
 		fmt.Println("---------------------------------")
 		return
 	}
-	for i, item := range *m {
+
+	for i, item := range *m { // Keep your original iterator
+		// THIS IS THE ONLY SIGNIFICANT ADDITION: Check for nil before calling methods
+		if fmt.Sprintf("%v", item) == "<nil>" { // General way to check if 'item' is nil or an interface holding nil
+			fmt.Printf("  [%d] <nil item>\n", i)
+			continue // Skip this item
+		}
+
+		// If we get here, 'item' is not nil, so it's safe to call its methods
 		fmt.Printf("  [%d] LRank: %d, EventID: %d, EventType: %s, Tie: %d\n",
 			i, item.GetLRank(), item.GetEventID(), item.GetEventType(), item.GetTieBreaker())
 	}

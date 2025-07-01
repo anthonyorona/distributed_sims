@@ -40,7 +40,7 @@ func PrintAllProcessStates(numProcesses int, states map[types.ProcessID]WatchMes
 	for i := 0; i < numProcesses; i++ {
 		pid := types.ProcessID(i)
 		if state, ok := states[pid]; ok {
-			fmt.Printf("  PID: %d, Clock: %s, State: %s\n", state.ProcessID, state.Clock, state.State)
+			fmt.Printf("PID: %d, Clock: %s, Queue Length: %d, State: %s\n", state.ProcessID, state.Clock, state.QL, state.State)
 		} else {
 			fmt.Printf("  PID: %d, Clock: N/A, State: Unknown (Not yet reported)\n", pid)
 		}

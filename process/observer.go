@@ -10,6 +10,7 @@ type WatchMessage struct {
 	ProcessID types.ProcessID
 	State     string
 	Clock     string
+	QL        int
 }
 
 type ProcessWatch struct {
